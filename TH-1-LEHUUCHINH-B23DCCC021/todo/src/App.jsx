@@ -1,7 +1,9 @@
 import React, { useState } from "react";
-import { List, Checkbox, Input, Button, Tag, DatePicker, Select, notification } from "antd";
-import dayjs from "dayjs"; // For formatting the date
+import { List, Checkbox, Input, Button, Tag, DatePicker, Select, notification, Modal } from "antd";
+import moment from "moment"; // cần cài đặt moment để chuyển đổi ngày tháng
 import "./styles/App.css";
+
+const { confirm } = Modal;
 
 const initialTasks = [
   {
@@ -44,36 +46,77 @@ function App() {
   const [newTask, setNewTask] = useState("");
   const [dueDate, setDueDate] = useState(null);
   const [tagColor, setTagColor] = useState("blue");
-  const handleAddTask = () => {
+  const [editingTaskId, setEditingTaskId] = useState(null);
+
+  const handleAddOrUpdateTask = () => {
     if (newTask && dueDate) {
-      setTasks([
-        ...tasks,
-        {
-          id: tasks.length + 1,
-          title: newTask,
-          dueDate: dueDate.format("YYYY-MM-DD"),
-          tagColor: tagColor,
-        },
-      ]);
-       
-        notification.success(
+      if (editingTaskId) {
+        // Cập nhật task
+        setTasks(
+          tasks.map((task) =>
+            task.id === editingTaskId
+              ? { ...task, title: newTask, dueDate: dueDate.format("YYYY-MM-DD"), tagColor: tagColor }
+              : task
+          )
+        );
+        notification.success({
+          message: "Task updated successfully",
+          description: "The task has been updated successfully.",
+        });
+        setEditingTaskId(null);
+      } else {
+        // Thêm task mới
+        setTasks([
+          ...tasks,
           {
-            message: "Task added successfully",
-            description: "The new task has been added to your list.",
-    
-          }
-        )
-      
+            id: tasks.length + 1,
+            title: newTask,
+            dueDate: dueDate.format("YYYY-MM-DD"),
+            tagColor: tagColor,
+          },
+        ]);
+        notification.success({
+          message: "Task added successfully",
+          description: "The new task has been added to your list.",
+        });
+      }
+
       setNewTask("");
       setDueDate(null);
       setTagColor("blue");
-    }
-    else {
+    } else {
       notification.error({
-        message: "Error adding task",
+        message: "Error",
         description: "Please fill in both the task title and due date.",
       });
     }
+  };
+
+  const showDeleteConfirm = (id) => {
+    confirm({
+      title: "Are you sure you want to delete this task?",
+      content: "This action cannot be undone.",
+      okText: "Yes",
+      okType: "danger",
+      cancelText: "No",
+      onOk() {
+        setTasks(tasks.filter((task) => task.id !== id));
+        notification.info({
+          message: "Task deleted",
+          description: "The task has been removed from your list.",
+        });
+      },
+      onCancel() {
+        console.log("Delete action cancelled.");
+      },
+    });
+  };
+
+  const handleEditTask = (task) => {
+    setNewTask(task.title);
+    setDueDate(moment(task.dueDate, "YYYY-MM-DD")); // chuyển đổi ngày tháng
+    setTagColor(task.tagColor);
+    setEditingTaskId(task.id);
   };
 
   const handleCheck = (id) => {
@@ -93,7 +136,12 @@ function App() {
           itemLayout="horizontal"
           dataSource={tasks}
           renderItem={(task) => (
-            <List.Item>
+            <List.Item
+              actions={[
+                <Button type="link" onClick={() => handleEditTask(task)}>Edit</Button>,
+                <Button type="link" danger onClick={() => showDeleteConfirm(task.id)}>Delete</Button>,
+              ]}
+            >
               <Checkbox onChange={() => handleCheck(task.id)} />
               <span
                 style={{
@@ -114,17 +162,18 @@ function App() {
           placeholder="Add task"
           value={newTask}
           onChange={(e) => setNewTask(e.target.value)}
-          onPressEnter={handleAddTask}
+          onPressEnter={handleAddOrUpdateTask}
           style={{ width: "300px", marginRight: "10px" }}
         />
 
         <DatePicker
+          value={dueDate}
           onChange={(date) => setDueDate(date)}
           style={{ marginRight: "10px" }}
         />
 
         <Select
-          defaultValue={tagColor}
+          value={tagColor}
           onChange={(value) => setTagColor(value)}
           style={{ width: "120px", marginRight: "10px" }}
         >
@@ -135,8 +184,8 @@ function App() {
           ))}
         </Select>
 
-        <Button style={{ color: "black" }} onClick={handleAddTask}>
-          Add task
+        <Button style={{ color: "black" }} onClick={handleAddOrUpdateTask}>
+          {editingTaskId ? "Update task" : "Add task"}
         </Button>
       </div>
     </div>
